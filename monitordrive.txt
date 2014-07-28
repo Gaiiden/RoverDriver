@@ -1,0 +1,327 @@
+///////////////
+// MonitorDrive
+// ------------
+// the "main loop" of the rover program that keeps tabs
+// on how the rover is performing and makes corrections
+// as needed to prevent accidents
+///////////////////////////////////////////////////////
+
+// update the log if a new day passes
+when yesterday < time:day then {
+  set yesterday to time:day.
+  set recentLogList:add to "<" + time:calendar + ">".
+  log "<" + time:calendar + ">" to RoverLog.
+  preserve.
+}.
+
+// make sure we never go too fast over level ground
+when abs(surfacespeed) >= currentOverSpeed then {
+  if brakesOn = false {
+    set brakesOn to true.
+    brakes on.
+    set brakeUseCount to brakeUseCount + 1.
+
+    if abs(currentSlopeAngle) > extremeSlopeAngle {
+      set lastBrake to time:seconds + extraBrakeTime.
+    } else {
+      set lastBrake to time:seconds.
+    }.
+  }.
+  preserve.
+}.
+
+// do we need to disable the brakes?
+when brakesOn = true and time:seconds - lastBrake >= currentBrakeTime then {
+  brakes off.
+  set brakesOn to false.
+  preserve.
+}.
+
+// if a change in pitch causes us to level out, we can return to cruising speed
+// however, don't be too quick to step on the gas if we're almost overspeeding after leveling off from a downslope
+when currentSlopeType <> 0 and abs(currentSlopeAngle) < levelSlopeAngle and onApproach = false then {
+  if currentSlopeType = 1 and currentSpeed <> cruiseSpeed {
+    if detailLogging = true {
+      set recentLogList:add to "<" + time:clock + "> resuming cruise speed".
+      log "<" + time:clock + "> resuming cruise speed" to RoverLog.
+    }.
+    set currentOverSpeed to overSpeedCruise.
+    set currentSlopeType to 0.
+    set currentBrakeTime to cruiseSpeedBrakeTime.
+    set currentSpeed to cruiseSpeed.
+    lock wheelthrottle to currentSpeed.
+  } else if currentSlopeType = 2 and currentSpeed <> cruiseSpeed and surfacespeed < overSpeedCruise - underSpeed {
+    if detailLogging = true {
+      set recentLogList:add to "<" + time:clock + "> resuming cruise speed".
+      log "<" + time:clock + "> resuming cruise speed" to RoverLog.
+    }.
+    set currentOverSpeed to overSpeedCruise.
+    set currentSlopeType to 0.
+    set currentBrakeTime to cruiseSpeedBrakeTime.
+    set currentSpeed to cruiseSpeed.
+    lock wheelthrottle to currentSpeed.
+  }
+  preserve.
+}.
+
+// if we are heading downhill, cut the throttle and begin to brake at a different speed
+// do the same if on a final approach
+when currentSlopeAngle < levelSlopeAngle * -1 and onApproach = false then {
+  if currentSlopeType <> 2 {
+    if detailLogging = true {
+      set recentLogList:add to "<" + time:clock + "> downslope detected. Throttle cut".
+      log "<" + time:clock + "> downslope detected. Throttle cut" to RoverLog.
+    }.
+    set currentSpeed to 0.
+    lock wheelthrottle to currentSpeed.
+    set currentOverSpeed to overSpeedDownSlope.
+    set currentBrakeTime to overSpeedDownSlopeBrakeTime.
+    set currentSlopeType to 2.
+  }.
+  preserve.
+}.
+
+// if a change in pitch causes us to head up to a large degree, we should increase speed
+when currentSlopeAngle > upSlopeAngle and onApproach = false and abortDrive = false and surfacespeed > slopeAbortSpeed then {
+  if currentSlopeType <> 1 {
+    // if we came here straight from a downslope, give us time to get back up to speed before triggering a slope abort
+    if currentSlopeType = 2 { set slopeAbortDelay to time:seconds. }.
+    if detailLogging = true {
+      set recentLogList:add to "<" + time:clock + "> upslope detected. Speeding up".
+      log "<" + time:clock + "> upslope detected. Speeding up" to RoverLog.
+    }.
+    set currentSlopeType to 1.
+    set currentSpeed to upSlopeSpeed.
+    lock wheelthrottle to currentSpeed.
+  }.
+  preserve.
+}.
+
+// if we are not making it up a slope, then we need to stop and phone home
+when surfacespeed < slopeAbortSpeed and currentSlopeType = 1 and abortDrive = false
+  and onApproach = false and time:seconds - slopeAbortDelay > slopeAbortDelayLength then
+  {
+  set recentLogList:add to "<" + time:clock + "> aborting drive due to slope".
+  log "<" + time:clock + "> aborting drive due to slope" to RoverLog.
+  set driveDistance to driveDistance - target:distance.
+  set currentOverSpeed to overSpeedDownSlope.
+  set abortDrive to true.
+  set currentSpeed to 0.
+  lock wheelthrottle to currentSpeed.
+  lock wheelsteering to 0.
+  if abortReverse = false {
+    brakes on.
+  }.
+  preserve.
+}.
+
+// start slowing down if we are close to our waypoint
+when target:distance < approachDistance then {
+  if onApproach = false {
+    if autoWarp = true { set warp to 0. }.
+    set onApproach to true.
+    set recentLogList:add to "<" + time:clock + "> approaching " + waypointName + currentWaypoint.
+    log "<" + time:clock + "> approaching " + waypointName + currentWaypoint to RoverLog.
+    // set the throttle based on the slope of the terrain
+    // do NOT feed lock anything but a static number
+    if currentSlopeAngle < 0 {
+      set currentSpeed to approachSpeedReverse + (currentSlopeAngle * slopeApproachMultiplierDown).
+    } else {
+      set currentSpeed to approachSpeedReverse - (currentSlopeAngle * slopeApproachMultiplierUp).
+    }.
+    lock wheelthrottle to currentSpeed.
+  }.
+  preserve.
+}.
+
+// make sure we don't completely stop before reaching our waypoint!
+when onApproach = true and target:distance > stopDistance then {
+  if surfacespeed < 1 and onFinalApproach = false {
+    set onFinalApproach to true.
+    set recentLogList:add to "<" + time:clock + "> adjusting approach speed".
+    log "<" + time:clock + "> adjusting approach speed" to RoverLog.
+    // set the throttle based on the slope of the terrain
+    // if slope is negative, then just coast
+    // do NOT feed lock anything but a static number
+    if currentSlopeAngle > 0 {
+      set currentSpeed to currentSlopeAngle * slopeApproachMultiplierUp.
+    } else {
+      set currentSpeed to 0.
+    }.
+    lock wheelthrottle to currentSpeed.
+  }.
+  preserve.
+}.
+
+// come to a stop at our waypoint
+// then get started towards our next one, if there is one
+// or wait if we need to perform science or something
+// or turn around and head back to the first one
+when target:distance < stopDistance and onApproach = true then {
+  set recentLogList:add to "<" + time:clock + "> reached " + waypointName + currentWaypoint.
+  log "<" + time:clock + "> reached " + waypointName + currentWaypoint to RoverLog.
+  lock wheelthrottle to 0.
+  brakes on.
+
+  if (currentWaypoint = 1 and travelDirection = -1) or (abs(currentWaypoint - numWaypoints) = 0 and autoReturn = false) {
+    set abortDrive to true.
+  } else {
+    if abs(currentWaypoint - numWaypoints) = 0 and autoReturn = true {
+      set travelDirection to -1.
+    }.
+
+    unlock wheelsteering.
+    set currentWaypoint to currentWaypoint + travelDirection.
+    set target to waypointName + currentWaypoint.
+    set goArounds to 0.
+    set lastGoAroundPosition to 0.
+    set traversing to 0.
+
+    if waypointHold = false {
+      brakes off.
+      // give time to get back up to speed
+      set lastSpeedCheck to time:seconds + resumeTravelTime.
+    } else {
+      set recentLogList:add to "<" + time:clock + "> release brakes to continue drive".
+      log "<" + time:clock + "> release brakes to continue drive" to RoverLog.
+    }.
+    set restartDrive to true.
+  }.
+  preserve.
+}.
+
+// have we gone airborne?
+when alt:radar > groundHeight then {
+  if wheelsUp = false {
+    set wheelsUp to true.
+    set WheelsUpTime to time:seconds.
+    set numAirtime to numAirtime + 1.
+    set recentLogList:add to "<" + time:clock + "> air time recorded".
+    log "<" + time:clock + "> air time recorded" to RoverLog.
+  }.
+  set airHeight to alt:radar - groundHeight.
+  preserve.
+}.
+
+// if we're on the ground, was it after leaving it?
+when alt:radar < groundHeight then {
+  if wheelsUp = true {
+    set wheelsUp to false.
+    set amountAirTime to amountAirTime + (time:seconds - wheelsUpTime).
+    if airHeight > maxAirHeight { set maxAirHeight to airHeight. }.
+  }.
+  preserve.
+}.
+
+// the main loop that updates our slope angle and otherwise keeps the program monitoring the drive
+// many thanks to Steven Mading for the slope detection code!
+until abort = true {
+  wait 0.001.
+
+  set upvec to up:vector.
+  set velvec to ship:velocity:surface:normalized.
+  set dp to vdot(velvec,upvec).
+  set currentSlopeAngle to 90 - arccos(dp).
+
+  if time:seconds - lastSpeedCheck >= speedCheckInterval and onApproach = false and abortDrive = false {
+    set avgSpeed:add to surfacespeed.
+    set lastSpeedCheck to time:seconds.
+  }.
+
+  if surfacespeed > highSpeed and abortDrive = false { set highSpeed to surfacespeed. }.
+  if currentSlopeAngle > maxUpslope and abortDrive = false { set maxUpslope to currentSlopeAngle. }.
+  if currentSlopeAngle < maxDownslope and abortDrive = false and brakes = false { set maxDownslope to currentSlopeAngle. }.
+
+  if restartDrive = true and brakes = false {
+    if waypointHold = true {
+      // give time to get back up to speed
+      set lastSpeedCheck to time:seconds + resumeTravelTime.
+    }.
+    wait 0.001.
+    set onApproach to false.
+    set onFinalApproach to false.
+    set currentSpeed to cruiseSpeed.
+    lock wheelthrottle to currentspeed.
+    if autoWarp = true { set warp to 1. }.
+    lock wheelsteering to target.
+    set restartDrive to false.
+    set metersRemaining to target:distance.
+    set recentLogList:add to "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint.
+    log "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint to RoverLog.
+    set driveDistance to driveDistance + target:distance.
+  }.
+
+  print "     " at (20,3).
+  print currentBrakeTime at (20,3).
+  print "      " at (42,3).
+  print round(currentSpeed, 2) at (42,3).
+  print "     " at (20,4).
+  print currentOverSpeed at (20,4).
+  print currentSlopeType at (46,4).
+  print currentWaypoint + "/" + numWaypoints at (19,5).
+  print brakeUseCount at (43,5).
+  print "      " at (21,6).
+  print round(currentSlopeAngle, 2) at (21,6).
+  print "      " at (22,10).
+  print round(alt:radar - groundHeight, 2) + "m" at (22,10).
+  print "        " at (17,11).
+  print round(surfacespeed, 2) + "m/s" at (17,11).
+  print "         " at (32,12).
+  print round(target:distance, 2) + "m" at (32,12).
+  if avgSpeed:length > 0 {
+    set avgSpeedResult to 0.
+    set sample to 0.
+    set index to avgSpeed:length - 1.
+    until index < avgSpeed:length - avgSpeedETASample or index < 0 {
+      set avgSpeedResult to avgSpeedResult + avgSpeed[index].
+      set index to index - 1.
+      set sample to sample + 1.
+    }
+    set avgSpeedResult to avgSpeedResult / sample.
+    set targetETA to target:distance / avgSpeedResult.
+
+    set hours to 0.
+    set minutes to 0.
+    if targetETA >= 3600 {
+      set hours to floor(targetETA / 3600).
+      set targetETA to targetETA - (hours * 3600).
+    }.
+
+    if targetETA >= 60 {
+      set minutes to floor(targetETA / 60).
+      set targetETA to targetETA - (minutes * 60).
+    }.
+
+    if minutes = 0 {
+      print "       " at (32,13).
+      print "< 1m" at (32,13).
+    } else {
+      print "       " at (32,13).
+      print hours + "h " + minutes + "m" at (32,13).
+    }.
+  }.
+
+  set index to 0.
+  until index = maxLogEntries or index = recentLogList:length {
+    print "|                                               |" at (0, logLineStart + index).
+    print recentLogList[index] at (2, logLineStart + index).
+    set index to index + 1.
+  }.
+
+  // cull the recent log list of it's too long
+  if recentLogList:length > maxLogEntries {
+    until recentLogList:length = maxLogEntries {
+      set recentLogList:remove to 0.
+    }.
+  }.
+
+  // this call to FinishDrive MUST be here. Calling it anywhere else will return execution to this
+  // program and then the code directly above will most likely overwrite the FinishDrive display text
+  if abortDrive = true and abs(currentSlopeAngle) < levelSlopeAngle and abortReverse = true {
+    lock wheelthrottle to 0.
+    brakes on.
+    run FinishDrive.
+  } else if abortDrive = true and abortReverse = false {
+    run FinishDrive.
+  }.
+}.
