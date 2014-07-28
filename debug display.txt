@@ -1,0 +1,35 @@
+=================================================
+|---------------Rover Variables-----------------|
+|                                               |
+| currentBrakeTime: 00.0    currentSpeed: 00.00 |
+| currentOverspeed: 00.0    currentSlopeType: 0 |
+| currentWaypoint: 00/00    brakeUseCount: 00   |
+| currentSlopeAngle: -00.00                     |
+|                                               |
+|------------Environment Information------------|
+|                                               |
+| Height over ground: 0.00m                     |
+| Surface speed: 00.00m/s                       |
+| Distance remaining to target: 0.00m           |
+|                          ETA: 00h 00m         |
+|                                               |
+|--------------Drive Completed!-----------------|
+|                                               |
+| <00:00:00> cutting speed to backup more
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|                                               |
+|===============================================|
+Rover Driver v1.0                 (c)Drew Kerman
