@@ -1,0 +1,176 @@
+/////////////
+// BeginDrive
+// ----------
+// sets some global variables needed by the various
+// programs that will be called during the drive
+/////////////////////////////////////////////////////
+
+// stats tracking and data logging
+set recentLogList to list().        // the last few entries into the rover log
+set maxLogEntries to 14.            // how many recent log items can fit in the output window
+set printedLogs to maxLogEntries.   // used to determine when the log display should refresh with new logs
+set logLineStart to 17.             // the first line at which logging is displayed
+set driveTimeBegin to time:seconds. // when we've started our drive
+set driveDistance to 0.             // how far we have driven
+set numAirtime to 0.                // how many times our wheels left the ground
+set amountAirTime to 0.             // how many seconds spent in the air
+set maxAirHeight to 0.              // the highest we've gotten off the ground
+set avgSpeed to list().             // leep track of our speed for an averaging
+set lastSpeedCheck to time:seconds. // last time we polled our speed
+set speedCheckInterval to 5.        // how many seconds between speed checks
+set resumeTravelTime to 10.         // how many seconds to delay speed checks after reaching a waypoint (to get back up to normal speed)
+                                    // note this is in addition to check interval time.
+set highSpeed to 0.                 // the fastest we've traveled
+set maxUpslope to 0.                // the steepest upslope encountered
+set maxDownslope to 0.              // the steepest downslope encountered
+set avgSpeedETASample to 5.         // how many speed checks we should sample to create an average to use to calculate our ETA
+set detailLogging to true.          // outputs extra vehicle behavior information to the log
+
+// data regarding waypoints
+set numWaypoints to 4.          // must be at least 1
+set currentWaypoint to 4.       // can start at any number from 1 to numWaypoints
+set waypointName to "waypoint". // whatever you have your waypoint vessels named
+set travelDirection to 1.       // set to -1 if you are starting from the last waypoint heading to the first
+set autoReturn to false.        // whether the rover should return to the first waypoint upon reaching the last
+set waypointHold to true.       // whether to stop at a waypoint or not (useful for performing science prior to continuing drive)
+
+// variables to tweak in order to control the rover driving
+set overSpeedDownSlopeBrakeTime to 0.3.   // number of seconds to brake when we are traveling in downhill overspeed mode
+set slopeAbortDelayLength to 10.          // number of seconds to wait after hitting an upslope straight from a downslope before a slope abort event can be triggered
+set extremeSlopeAngle to 8.               // defines the angle at which coasting down would greatly break through overSpeed
+set extraBrakeTime to 0.7.                // how many seconds longer to stand on the brakes when traveling down an extreme slope
+set slopeAbortSpeed to 2.                 // m/s of how slow the rover needs to be going up a slope to trigger the drive abort
+set groundHeight to 0.6.                  // how high (m) your rover sits off the ground. Used to detect air time, should leave margin for movement
+set brakeOveruse to 3.                    // how many times to use the brake before cutting throttle to coast
+set cruiseSpeedBrakeTime to 1.            // how many seconds to apply brakes when needed during cruise mode
+set upSlopeAngle to 5.                    // the angle at which the rover needs to speed up from cruise speed to maintain forward movement
+set cruiseSpeed to 0.6.                   // this is how fast the rover will travel when driving straight and level
+set upSlopeSpeed to 0.8.                  // this is how fast the rover will travel when driving up a slope greater than upSlopeAngle
+set overSpeedCruise to 8.                 // m/s of how fast not to go when traveling over level ground
+set overSpeedDownSlope to 4.              // m/s of how fast not to go when traveling down a slope after we've exceeded brakeOveruse
+set underSpeed to 2.                      // m/s less than overspeed we should be traveling over level ground before resuming cruise speed
+set approachDistance to 100.              // meters from the waypoint to begin slowing down
+set approachSpeedReverse to -0.3.         // how fast we should slow down once we pass approachDistance (should be a negative number!)
+set stopDistance to 15.                   // meters from the waypoint we should put on the brakes to bring the rover to a stop
+set levelSlopeAngle to 2.                 // degrees at which the rover decides it is level enough for cruiseSpeed
+set slopeApproachMultiplierUp to 0.4.     // how much to increase speed based on the slope of the final approach to the waypoint
+set slopeApproachMultiplierDown to 0.05.  // how much to decrease speed based on the slope of the initial approach to the waypoint
+set autoWarp to false.                    // set 2x physical warp when driving, 1x when approaching/departing waypoint
+set abortReverse to true.                 // on slope abort, back down to level ground if True. Just enable brakes if False
+
+// environment variables. Don't touch!
+set onFinalApproach to false.                 // we've stopped short and need to tweak the throttle to close the gap
+set restartDrive to false.                    // temp fix for bug that doesn't make target data immediately available
+set wheelsUp to false.                        // are we off the ground?
+set yesterday to time:day.                    // today is yesterday... until tomorrow
+set currentSlopeType to 0.                    // 0 = level, 1 = upslope, 2 = downslope
+set currentSlopeAngle to 0.                   // the degree of up/down pitch the rover is currently experiencing
+set brakesOn to false.                        // braking recently activated or not
+set lastBrake to -1.                          // when to let off the brakes
+set brakeUseCount to 0.                       // how many times we've stepped on the brakes in close succession
+set onApproach to false.                      // are we almost there yet?
+set abortDrive to false.                      // did we meet a slope we can't match?
+set currentSpeed to 0.                        // for various drive functions, the speed used can be any of the ones defined below
+set currentOverSpeed to overSpeedCruise.      // how fast we shouldn't be going, currently
+set slopeAbortDelay to 0.                     // used to delay a slope abort event
+set currentBrakeTime to cruiseSpeedBrakeTime. // current amount of braking time in seconds
+
+clearscreen.
+abort off.
+
+set recentLogList:add to "<" + time:calendar + ">".
+log "<" + time:calendar + ">" to RoverLog.
+
+set recentLogList:add to "<" + time:clock + "> program initialized".
+log "<" + time:clock + "> program initialized" to RoverLog.
+
+// time to head for the first waypoint!
+set target to waypointName + currentWaypoint.
+
+set recentLogList:add to "<" + time:clock + "> target " + waypointName + currentWaypoint + " selected".
+log "<" + time:clock + "> target " + waypointName + currentWaypoint + " selected" to RoverLog.
+
+// let the program gather data on the target we just acquizired
+wait 0.001.
+
+set recentLogList:add to "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint.
+log "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint to RoverLog.
+
+set driveDistance to driveDistance + target:distance.
+brakes off.
+lock wheelsteering to target.
+set currentSpeed to cruiseSpeed.
+lock wheelthrottle to currentspeed.
+
+// only need to print the output screen once, in full, then we just change values
+print "=================================================".
+print "|---------------Rover Variables-----------------|".
+print "|                                               |".
+print "| currentBrakeTime: 00.0    currentSpeed: 00.00 |".
+print "| currentOverspeed: 00.0    currentSlopeType: 0 |".
+print "| currentWaypoint: 0/0      brakeUseCount: 0    |".
+print "| currentSlopeAngle: -00.00                     |".
+print "|                                               |".
+print "|------------Environment Information------------|".
+print "|                                               |".
+print "| Height over ground: 0.00m                     |".
+print "| Surface speed: 0.00m/s                        |".
+print "| Distance remaining to target: 0.00m           |".
+print "|                          ETA: 0h 0m           |".
+print "|                                               |".
+print "|--------------Recent Log Entries---------------|".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|===============================================|".
+print "Rover Driver v1.0                  (c)Drew Kerman".
+
+// only need to print the log once
+set index to 0.
+until index = maxLogEntries or index = recentLogList:length {
+  print recentLogList[index] at (2, logLineStart + index).
+  set index to index + 1.
+}.
+
+// let's not immediately hop into monitoring mode but give the slope detection time to smooth out
+set rollOut to time:seconds.
+until time:seconds - rollOut > 5 {
+  set upvec to up:vector.
+  set velvec to ship:velocity:surface:normalized.
+  set dp to vdot(velvec,upvec).
+  set currentSlopeAngle to 90 - arccos(dp).
+
+  print "     " at (20,3).
+  print currentBrakeTime at (20,3).
+  print "      " at (42,3).
+  print round(currentSpeed, 2) at (42,3).
+  print "     " at (20,4).
+  print currentOverSpeed at (20,4).
+  print currentSlopeType at (46,4).
+  print currentWaypoint + "/" + numWaypoints at (19,5).
+  print brakeUseCount at (43,5).
+  print "      " at (22,10).
+  print round(alt:radar - groundHeight, 2) + "m" at (22,10).
+  print "        " at (17,11).
+  print round(surfacespeed, 2) + "m/s" at (17,11).
+  print "         " at (32,12).
+  print round(target:distance, 2) + "m" at (32,12).
+
+  wait 0.001.
+}.
+
+if autoWarp = true { set warp to 1. }.
+run MonitorDrive.
