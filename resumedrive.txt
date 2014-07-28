@@ -1,0 +1,106 @@
+///////////////
+// ResumeDrive
+// ------------
+// a copy of BeginDrive but uses local data already
+// in place from a previous drive that was stopped
+/////////////////////////////////////////////////////
+
+clearscreen.
+abort off.
+
+set recentLogList:add to "<" + time:calendar + ">".
+log "<" + time:calendar + ">" to RoverLog.
+
+set recentLogList:add to "<" + time:clock + "> program using existing state".
+log "<" + time:clock + "> program using existing state" to RoverLog.
+
+// time to head for the waypoint
+set target to waypointName + currentWaypoint.
+
+set recentLogList:add to "<" + time:clock + "> target " + waypointName + currentWaypoint + " selected".
+log "<" + time:clock + "> target " + waypointName + currentWaypoint + " selected" to RoverLog.
+
+// let the program gather data on the target we just acquizired
+wait 0.001.
+
+set recentLogList:add to "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint.
+log "<" + time:clock + "> driving " + round(target:distance, 2) + "m to " + waypointName + currentWaypoint to RoverLog.
+
+brakes off.
+lock wheelsteering to target.
+set currentSpeed to cruiseSpeed.
+lock wheelthrottle to currentspeed.
+
+// only need to print the output screen once, in full, then we just change values
+print "=================================================".
+print "|---------------Rover Variables-----------------|".
+print "|                                               |".
+print "| currentBrakeTime: 00.0    currentSpeed: 00.00 |".
+print "| currentOverspeed: 00.0    currentSlopeType: 0 |".
+print "| currentWaypoint: 0/0      brakeUseCount: 0    |".
+print "| currentSlopeAngle: -00.00                     |".
+print "|                                               |".
+print "|------------Environment Information------------|".
+print "|                                               |".
+print "| Height over ground: 0.00m                     |".
+print "| Surface speed: 0.00m/s                        |".
+print "| Distance remaining to target: 0.00m           |".
+print "|                          ETA: 0h 0m           |".
+print "|                                               |".
+print "|--------------Recent Log Entries---------------|".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|                                               |".
+print "|===============================================|".
+print "Rover Driver v1.0                  (c)Drew Kerman".
+
+// only need to print the log once
+set index to 0.
+until index = maxLogEntries or index = recentLogList:length {
+  print recentLogList[index] at (2, logLineStart + index).
+  set index to index + 1.
+}.
+
+// let's not immediately hop into monitoring mode but give the slope detection time to smooth out
+set rollOut to time:seconds.
+until time:seconds - rollOut > 5 {
+  set upvec to up:vector.
+  set velvec to ship:velocity:surface:normalized.
+  set dp to vdot(velvec,upvec).
+  set currentSlopeAngle to 90 - arccos(dp).
+
+  print "     " at (20,3).
+  print currentBrakeTime at (20,3).
+  print "      " at (42,3).
+  print round(currentSpeed, 2) at (42,3).
+  print "     " at (20,4).
+  print currentOverSpeed at (20,4).
+  print currentSlopeType at (46,4).
+  print currentWaypoint + "/" + numWaypoints at (19,5).
+  print brakeUseCount at (43,5).
+  print "      " at (22,10).
+  print round(alt:radar - groundHeight, 2) + "m" at (22,10).
+  print "        " at (17,11).
+  print round(surfacespeed, 2) + "m/s" at (17,11).
+  print "         " at (32,12).
+  print round(target:distance, 2) + "m" at (32,12).
+
+  wait 0.001.
+}.
+
+if autoWarp = true { set warp to 1. }.
+run MonitorDrive.
