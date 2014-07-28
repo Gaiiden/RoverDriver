@@ -1,0 +1,67 @@
+///////////////
+// FinishDrive
+// -----------
+// prints some lovely stats
+///////////////////////////
+
+set driveTime to floor(time:seconds - driveTimeBegin).
+set days to 0.
+set hours to 0.
+set minutes to 0.
+
+if driveTime >= 86400 {
+  set days to floor(driveTime / 86400).
+  set driveTime to driveTime - (days * 86400).
+}.
+
+if driveTime >= 3600 {
+  set hours to floor(driveTime / 3600).
+  set driveTime to driveTime - (hours * 3600).
+}.
+
+if driveTime >= 60 {
+  set minutes to floor(driveTime / 60).
+  set driveTime to driveTime - (minutes * 60).
+}.
+
+set seconds to driveTime.
+
+set avgSpeedResult to 0.
+for speed in avgSpeed {
+  set avgSpeedResult to avgSpeedResult + speed.
+}.
+set avgSpeedResult to avgSpeedResult / avgSpeed:length.
+
+if abortDrive = true {
+  print "|---------------Drive Aborted!------------------|" at (0,15).
+} else {
+  print "|--------------Drive Completed!-----------------|" at (0,15).
+}.
+
+print "|                                               |" at (0,17).
+print "|                                               |" at (0,18).
+print "|                                               |" at (0,19).
+print "|                                               |" at (0,20).
+print "|                                               |" at (0,21).
+print "|                                               |" at (0,22).
+print "|                                               |" at (0,23).
+print "|                                               |" at (0,24).
+print "|                                               |" at (0,25).
+print "|                                               |" at (0,26).
+print "|                                               |" at (0,27).
+print "|                                               |" at (0,28).
+print "|                                               |" at (0,29).
+print "|                                               |" at (0,30).
+
+print "Distance driven: " + round(driveDistance, 2) + "m" at (2,17).
+print "Time to destination: " + days + "d, " + hours + "h:" + minutes + "m:" + seconds + "s" at (2,18).
+print "Average speed: " + round(avgSpeedResult,2) + "m/s" at (2,19).
+print "Highest speed: " + round(highSpeed, 2) + "m/s" at (2,20).
+print "Greatest upslope angle: " + round(maxUpslope, 2) + "°" at (2,21).
+print "Greatest downslope angle: " + round(maxDownslope, 2) + "°" at (2,22).
+print "Brakes were applied " + brakeUseCount + " times" at (2,23).
+print "Wheels left the ground " + numAirtime + " times" at (2,24).
+print "Total air time: " + round(amountAirTime, 2) + "s" at (2,25).
+print "Highest air: " + round(maxAirHeight, 2) + "m" at (2,26).
+
+abort on.
