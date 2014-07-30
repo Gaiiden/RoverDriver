@@ -22,10 +22,10 @@ when abs(surfacespeed) >= currentOverSpeed then {
     set brakeUseCount to brakeUseCount + 1.
 
     if abs(currentSlopeAngle) > extremeSlopeAngle {
-      set lastBrake to time:seconds + extraBrakeTime.
-    } else {
-      set lastBrake to time:seconds.
-    }.
+      set currentBrakeTime to overSpeedDownSlopeBrakeTime + extraBrakeTime.
+    }
+
+    set lastBrake to time:seconds.
   }.
   preserve.
 }.
@@ -66,7 +66,7 @@ when currentSlopeType <> 0 and abs(currentSlopeAngle) < levelSlopeAngle and onAp
 
 // if we are heading downhill, cut the throttle and begin to brake at a different speed
 // do the same if on a final approach
-when currentSlopeAngle < levelSlopeAngle * -1 and onApproach = false then {
+when currentSlopeAngle < levelSlopeAngle * -1 and onApproach = false and abortDrive = false then {
   if currentSlopeType <> 2 {
     if detailLogging = true {
       set recentLogList:add to "<" + time:clock + "> downslope detected. Throttle cut".
@@ -125,9 +125,10 @@ when target:distance < approachDistance then {
     // set the throttle based on the slope of the terrain
     // do NOT feed lock anything but a static number
     if currentSlopeAngle < 0 {
-      set currentSpeed to approachSpeedReverse + (currentSlopeAngle * slopeApproachMultiplierDown).
+      set currentSpeed to approachSpeedReverse - (currentSlopeAngle * slopeApproachMultiplierDown).
+      if currentSpeed > 0 { set currentSpeed to 0. }.
     } else {
-      set currentSpeed to approachSpeedReverse - (currentSlopeAngle * slopeApproachMultiplierUp).
+      set currentSpeed to approachSpeedReverse + (currentSlopeAngle * slopeApproachMultiplierUp).
     }.
     lock wheelthrottle to currentSpeed.
   }.
@@ -144,7 +145,7 @@ when onApproach = true and target:distance > stopDistance then {
     // if slope is negative, then just coast
     // do NOT feed lock anything but a static number
     if currentSlopeAngle > 0 {
-      set currentSpeed to currentSlopeAngle * slopeApproachMultiplierUp.
+      set currentSpeed to currentSpeed + (currentSlopeAngle * slopeApproachMultiplierUp).
     } else {
       set currentSpeed to 0.
     }.
@@ -231,18 +232,20 @@ until abort = true {
   if surfacespeed > highSpeed and abortDrive = false { set highSpeed to surfacespeed. }.
   if currentSlopeAngle > maxUpslope and abortDrive = false { set maxUpslope to currentSlopeAngle. }.
   if currentSlopeAngle < maxDownslope and abortDrive = false and brakes = false { set maxDownslope to currentSlopeAngle. }.
+  if altitude > maxAltitude { set maxAltitude to altitude. }.
+  if altitude < minAltitude { set minAltitude to altitude. }.
 
   if restartDrive = true and brakes = false {
     if waypointHold = true {
       // give time to get back up to speed
       set lastSpeedCheck to time:seconds + resumeTravelTime.
     }.
-    wait 0.001.
     set onApproach to false.
     set onFinalApproach to false.
     set currentSpeed to cruiseSpeed.
     lock wheelthrottle to currentspeed.
     if autoWarp = true { set warp to 1. }.
+    wait 0.001.
     lock wheelsteering to target.
     set restartDrive to false.
     set metersRemaining to target:distance.
@@ -251,19 +254,23 @@ until abort = true {
     set driveDistance to driveDistance + target:distance.
   }.
 
+  wait 0.001.
   print "     " at (20,3).
   print currentBrakeTime at (20,3).
   print "      " at (42,3).
   print round(currentSpeed, 2) at (42,3).
+  wait 0.001.
   print "     " at (20,4).
   print currentOverSpeed at (20,4).
   print currentSlopeType at (46,4).
   print currentWaypoint + "/" + numWaypoints at (19,5).
   print brakeUseCount at (43,5).
+  wait 0.001.
   print "      " at (21,6).
   print round(currentSlopeAngle, 2) at (21,6).
   print "      " at (22,10).
   print round(alt:radar - groundHeight, 2) + "m" at (22,10).
+  wait 0.001.
   print "        " at (17,11).
   print round(surfacespeed, 2) + "m/s" at (17,11).
   print "         " at (32,12).
@@ -303,6 +310,7 @@ until abort = true {
 
   set index to 0.
   until index = maxLogEntries or index = recentLogList:length {
+    wait 0.001.
     print "|                                               |" at (0, logLineStart + index).
     print recentLogList[index] at (2, logLineStart + index).
     set index to index + 1.
