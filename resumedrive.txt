@@ -5,6 +5,18 @@
 // in place from a previous drive that was stopped
 /////////////////////////////////////////////////////
 
+// environment variables. Don't touch!
+set wheelsUp to false.                        // are we off the ground?
+set yesterday to time:day.                    // today is yesterday... until tomorrow
+set currentSlopeType to 0.                    // 0 = level, 1 = upslope, 2 = downslope
+set currentSlopeAngle to 0.                   // the degree of up/down pitch the rover is currently experiencing
+set brakesOn to false.                        // braking recently activated or not
+set lastBrake to -1.                          // when to let off the brakes
+set currentSpeed to 0.                        // for various drive functions, the speed used can be any of the ones defined below
+set currentOverSpeed to overSpeedCruise.      // how fast we shouldn't be going, currently
+set slopeAbortDelay to 0.                     // used to delay a slope abort event
+set currentBrakeTime to cruiseSpeedBrakeTime. // current amount of braking time in seconds
+
 clearscreen.
 abort off.
 
@@ -77,16 +89,18 @@ until index = maxLogEntries or index = recentLogList:length {
 
 // let's not immediately hop into monitoring mode but give the slope detection time to smooth out
 set rollOut to time:seconds.
-until time:seconds - rollOut > 5 {
+until time:seconds - rollOut > driveMonitorWaitTime {
   set upvec to up:vector.
   set velvec to ship:velocity:surface:normalized.
   set dp to vdot(velvec,upvec).
   set currentSlopeAngle to 90 - arccos(dp).
 
+  wait 0.001.
   print "     " at (20,3).
   print currentBrakeTime at (20,3).
   print "      " at (42,3).
   print round(currentSpeed, 2) at (42,3).
+  wait 0.001.
   print "     " at (20,4).
   print currentOverSpeed at (20,4).
   print currentSlopeType at (46,4).
@@ -94,12 +108,11 @@ until time:seconds - rollOut > 5 {
   print brakeUseCount at (43,5).
   print "      " at (22,10).
   print round(alt:radar - groundHeight, 2) + "m" at (22,10).
+  wait 0.001.
   print "        " at (17,11).
   print round(surfacespeed, 2) + "m/s" at (17,11).
   print "         " at (32,12).
   print round(target:distance, 2) + "m" at (32,12).
-
-  wait 0.001.
 }.
 
 if autoWarp = true { set warp to 1. }.
