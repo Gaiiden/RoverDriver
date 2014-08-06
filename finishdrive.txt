@@ -39,7 +39,7 @@ print "|                                               |".
 print "| currentBrakeTime: 00.0    currentSpeed: 00.00 |".
 print "| currentOverspeed: 00.0    currentSlopeType: 0 |".
 print "| currentWaypoint: 0/0      brakeUseCount: 0    |".
-print "| currentSlopeAngle: -00.00                     |".
+print "| currentSlopeAngle: -00.00 abortDrive: False   |".
 print "|                                               |".
 print "|------------Environment Information------------|".
 print "|                                               |".
