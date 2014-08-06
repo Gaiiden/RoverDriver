@@ -29,11 +29,11 @@ set avgSpeedETASample to 5.         // how many speed checks we should sample to
 set detailLogging to false.         // outputs extra vehicle behavior information to the log
 
 // data regarding waypoints
-set numWaypoints to 7.          // must be at least 1
-set currentWaypoint to 1.       // can start at any number from 1 to numWaypoints
+set numWaypoints to 4.          // must be at least 1
+set currentWaypoint to 2.       // can start at any number from 1 to numWaypoints
 set waypointName to "waypoint". // whatever you have your waypoint vessels named
 set travelDirection to 1.       // set to -1 if you are starting from the last waypoint heading to the first
-set autoReturn to false.        // whether the rover should return to the first waypoint upon reaching the last
+set autoReturn to true.         // whether the rover should return to the first waypoint upon reaching the last
 set waypointHold to false.      // whether to stop at a waypoint or not (useful for performing science prior to continuing drive)
 
 // variables to tweak in order to control the rover driving
@@ -50,13 +50,13 @@ set upSlopeSpeed to 0.8.                  // this is how fast the rover will tra
 set overSpeedCruise to 8.                 // m/s of how fast not to go when traveling over level ground
 set overSpeedDownSlope to 4.              // m/s of how fast not to go when traveling down a slope after we've exceeded brakeOveruse
 set underSpeed to 2.                      // m/s less than overspeed we should be traveling over level ground before resuming cruise speed
-set approachDistance to 100.              // meters from the waypoint to begin slowing down
+set approachDistance to 25.               // meters from the waypoint to begin slowing down
 set approachSpeedReverse to -0.3.         // how fast we should slow down once we pass approachDistance (should be a negative number!)
-set stopDistance to 15.                   // meters from the waypoint we should put on the brakes to bring the rover to a stop
+set stopDistance to 10.                   // meters from the waypoint we should put on the brakes to bring the rover to a stop
 set levelSlopeAngle to 3.                 // degrees at which the rover decides it is level enough for cruiseSpeed (upslope.downslope)
-set slopeApproachMultiplierUp to 0.1.     // how much to increase speed based on the slope of the final approach to the waypoint
+set slopeApproachMultiplierUp to 0.2.     // how much to increase speed based on the slope of the final approach to the waypoint
 set slopeApproachMultiplierDown to 0.1.   // how much to decrease speed based on the slope of the initial approach to the waypoint
-set driveMonitorWaitTime to 10.           // number of seconds to wait after beginning/resuming a drive before allowing the monitor program to kick in
+set driveMonitorWaitTime to 4.            // number of seconds to wait after beginning/resuming a drive before allowing the monitor program to kick in
 set autoWarp to true.                     // set 2x physical warp when driving, 1x when approaching/departing waypoint
 set abortReverse to true.                 // on slope abort, back down to level ground if True. Just enable brakes if False
 
@@ -76,6 +76,7 @@ set currentSpeed to 0.                        // for various drive functions, th
 set currentOverSpeed to overSpeedCruise.      // how fast we shouldn't be going, currently
 set slopeAbortDelay to 0.                     // used to delay a slope abort event
 set currentBrakeTime to cruiseSpeedBrakeTime. // current amount of braking time in seconds
+set warpmode to "PHYSICS".                    // make sure we always warp in physics mode
 
 clearscreen.
 abort off.
@@ -111,7 +112,7 @@ print "|                                               |".
 print "| currentBrakeTime: 00.0    currentSpeed: 00.00 |".
 print "| currentOverspeed: 00.0    currentSlopeType: 0 |".
 print "| currentWaypoint: 0/0      brakeUseCount: 0    |".
-print "| currentSlopeAngle: -00.00                     |".
+print "| currentSlopeAngle: -00.00 abortDrive: False   |".
 print "|                                               |".
 print "|------------Environment Information------------|".
 print "|                                               |".
@@ -160,12 +161,14 @@ until time:seconds - rollOut > driveMonitorWaitTime {
   print currentBrakeTime at (20,3).
   print "      " at (42,3).
   print round(currentSpeed, 2) at (42,3).
-  wait 0.001.
   print "     " at (20,4).
   print currentOverSpeed at (20,4).
+  wait 0.001.
   print currentSlopeType at (46,4).
   print currentWaypoint + "/" + numWaypoints at (19,5).
   print brakeUseCount at (43,5).
+  print "      " at (21,6).
+  print round(currentSlopeAngle, 2) at (21,6).
   print "      " at (22,10).
   print round(alt:radar - groundHeight, 2) + "m" at (22,10).
   wait 0.001.
