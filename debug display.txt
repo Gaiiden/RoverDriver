@@ -4,7 +4,7 @@
 | currentBrakeTime: 00.0    currentSpeed: 00.00 |
 | currentOverspeed: 00.0    currentSlopeType: 0 |
 | currentWaypoint: 00/00    brakeUseCount: 00   |
-| currentSlopeAngle: -00.00                     |
+| currentSlopeAngle: -00.00 abortDrive: False   |
 |                                               |
 |------------Environment Information------------|
 |                                               |
