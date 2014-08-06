@@ -7,7 +7,6 @@
 
 // environment variables. Don't touch!
 set wheelsUp to false.                        // are we off the ground?
-set yesterday to time:day.                    // today is yesterday... until tomorrow
 set currentSlopeType to 0.                    // 0 = level, 1 = upslope, 2 = downslope
 set currentSlopeAngle to 0.                   // the degree of up/down pitch the rover is currently experiencing
 set brakesOn to false.                        // braking recently activated or not
@@ -20,8 +19,10 @@ set currentBrakeTime to cruiseSpeedBrakeTime. // current amount of braking time 
 clearscreen.
 abort off.
 
-set recentLogList:add to "<" + time:calendar + ">".
-log "<" + time:calendar + ">" to RoverLog.
+if yesterday < time:day {
+  set recentLogList:add to "<" + time:calendar + ">".
+  log "<" + time:calendar + ">" to RoverLog.
+}.
 
 set recentLogList:add to "<" + time:clock + "> program using existing state".
 log "<" + time:clock + "> program using existing state" to RoverLog.
@@ -50,7 +51,7 @@ print "|                                               |".
 print "| currentBrakeTime: 00.0    currentSpeed: 00.00 |".
 print "| currentOverspeed: 00.0    currentSlopeType: 0 |".
 print "| currentWaypoint: 0/0      brakeUseCount: 0    |".
-print "| currentSlopeAngle: -00.00                     |".
+print "| currentSlopeAngle: -00.00 abortDrive: False   |".
 print "|                                               |".
 print "|------------Environment Information------------|".
 print "|                                               |".
@@ -100,12 +101,14 @@ until time:seconds - rollOut > driveMonitorWaitTime {
   print currentBrakeTime at (20,3).
   print "      " at (42,3).
   print round(currentSpeed, 2) at (42,3).
-  wait 0.001.
   print "     " at (20,4).
   print currentOverSpeed at (20,4).
+  wait 0.001.
   print currentSlopeType at (46,4).
   print currentWaypoint + "/" + numWaypoints at (19,5).
   print brakeUseCount at (43,5).
+  print "      " at (21,6).
+  print round(currentSlopeAngle, 2) at (21,6).
   print "      " at (22,10).
   print round(alt:radar - groundHeight, 2) + "m" at (22,10).
   wait 0.001.
