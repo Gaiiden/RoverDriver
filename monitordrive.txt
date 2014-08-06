@@ -268,6 +268,8 @@ until abort = true {
   wait 0.001.
   print "      " at (21,6).
   print round(currentSlopeAngle, 2) at (21,6).
+  print "     " at (40,6).
+  print abortDrive at (40,6).
   print "      " at (22,10).
   print round(alt:radar - groundHeight, 2) + "m" at (22,10).
   wait 0.001.
